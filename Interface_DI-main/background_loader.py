@@ -27,4 +27,5 @@ class BackgroundLoader:
         return img
     
     def get_background(self, map_index):
-        return self.backgrounds.get(map_index, self._placeholder(map_index + 1)).copy()
+        # Sem .copy() - background \u00e9 read-only, economiza mem\u00f3ria e processamento
+        return self.backgrounds.get(map_index, self._placeholder(map_index + 1))

@@ -30,6 +30,8 @@ class Renderer:
         self.multiplayer_countdown_start = 0
         self.lobby_state = "WAITING"
         self.lobby_countdown_start = 0
+        # Cache para overlays (evitar recriação)
+        self._overlay_cache = {}
     
     def _put_text_ttf(self, img, text, position, font_size, color, outline=False):
         if self.font_path:
@@ -107,24 +109,27 @@ class Renderer:
                 cv2.circle(image, (int(landmark.x * w), int(landmark.y * h)), 4, (255, 0, 0), -1)
     
     def _draw_instructions(self, image, w, h):
+        # Seta esquerda com animação
         if self.arrow_animation_active and self.arrow_direction == -1:
             pulse = 1.0 + 0.3 * (1 - abs(self.arrow_animation_progress - 0.5) * 2)
-            thickness, alpha = max(1, int(3 * pulse)), max(100, int(255 * (1 - self.arrow_animation_progress)))
-            overlay = image.copy()
-            cv2.arrowedLine(overlay, (70, 35), (30, 35), (255, 255, 0), thickness, tipLength=0.4)
-            cv2.addWeighted(overlay, alpha / 255.0, image, 1 - alpha / 255.0, 0, image)
+            thickness = max(1, int(3 * pulse))
+            alpha_val = max(100, int(255 * (1 - self.arrow_animation_progress)))
+            # Cor com alpha (mais eficiente que addWeighted)
+            color = (int(255 * alpha_val / 255), int(255 * alpha_val / 255), 0)
+            cv2.arrowedLine(image, (70, 35), (30, 35), color, thickness, tipLength=0.4)
         else:
             cv2.arrowedLine(image, (70, 35), (30, 35), (255, 255, 0), 3, tipLength=0.4)
         
         self._put_text_ttf(image, "Suba o braco esquerdo", (100, 30), 20, (15, 15, 15))
         self._put_text_ttf(image, "para recuar", (100, 48), 20, (15, 15, 15))
         
+        # Seta direita com animação
         if self.arrow_animation_active and self.arrow_direction == 1:
             pulse = 1.0 + 0.3 * (1 - abs(self.arrow_animation_progress - 0.5) * 2)
-            thickness, alpha = max(1, int(3 * pulse)), max(100, int(255 * (1 - self.arrow_animation_progress)))
-            overlay = image.copy()
-            cv2.arrowedLine(overlay, (w - 70, 35), (w - 30, 35), (255, 255, 0), thickness, tipLength=0.4)
-            cv2.addWeighted(overlay, alpha / 255.0, image, 1 - alpha / 255.0, 0, image)
+            thickness = max(1, int(3 * pulse))
+            alpha_val = max(100, int(255 * (1 - self.arrow_animation_progress)))
+            color = (int(255 * alpha_val / 255), int(255 * alpha_val / 255), 0)
+            cv2.arrowedLine(image, (w - 70, 35), (w - 30, 35), color, thickness, tipLength=0.4)
         else:
             cv2.arrowedLine(image, (w - 70, 35), (w - 30, 35), (255, 255, 0), 3, tipLength=0.4)
         
@@ -148,22 +153,20 @@ class Renderer:
             alpha = self.transition_progress
             carousel_img = cv2.addWeighted(previous_bg, 1 - alpha, current_bg, alpha, 0)
         elif current_bg is not None:
-            carousel_img = current_bg.copy()
+            carousel_img = current_bg
         else:
-            carousel_img = img.copy()
+            carousel_img = img
         
-        img = carousel_img
-        overlay = img.copy()
-        overlay[:] = (20, 20, 25)
-        img = cv2.addWeighted(overlay, 0.2, img, 0.8, 0)
+        # Aplicar overlay escuro diretamente sem criar cópia
+        img = (carousel_img * 0.8).astype(np.uint8)
+        img[:] = np.clip(img + 4, 0, 255)  # Leve clareza
         
         self._put_text_ttf(img, maps[current_index], (100, h - 170), 100, (255, 255, 255), outline=True)
         cv2.rectangle(img, (0, 0), (w, h), (255, 255, 0), 3)
         
         if is_locked:
-            lock_overlay = np.zeros((h, w, 3), dtype=np.uint8)
-            lock_overlay[:] = (0, 0, 0)
-            img = cv2.addWeighted(img, 0.3, lock_overlay, 0.7, 0)
+            # Overlay preto diretamente
+            img = (img * 0.3).astype(np.uint8)
             locked_text = "BLOQUEADO"
             text_width = len(locked_text) * int(56 * 0.65)
             self._put_text_ttf(img, locked_text, ((w - text_width) // 2, h // 2), 56, (0, 0, 255), outline=True)
@@ -172,9 +175,11 @@ class Renderer:
         return img
     
     def _render_multiplayer_lobby(self, img, maps, current_index, w, h, mp_lobby_data):
-        overlay = img.copy()
-        overlay[:] = (180, 100, 50)
-        img = cv2.addWeighted(overlay, 0.4, img, 0.6, 0)
+        # Aplicar overlay laranja diretamente (mais rápido que addWeighted)
+        img = (img * 0.6).astype(np.uint8)
+        img[:, :, 0] = np.clip(img[:, :, 0] + 20, 0, 255)  # B
+        img[:, :, 1] = np.clip(img[:, :, 1] + 40, 0, 255)  # G
+        img[:, :, 2] = np.clip(img[:, :, 2] + 72, 0, 255)  # R
         
         elapsed = (time.time() - self.loading_time) * 2.5
         dots = (int(elapsed) % 3) + 1
@@ -208,9 +213,11 @@ class Renderer:
         return img
     
     def _render_lobby(self, img, maps, current_index, w, h):
-        overlay = img.copy()
-        overlay[:] = (180, 100, 50)
-        img = cv2.addWeighted(overlay, 0.4, img, 0.6, 0)
+        # Aplicar overlay laranja diretamente
+        img = (img * 0.6).astype(np.uint8)
+        img[:, :, 0] = np.clip(img[:, :, 0] + 20, 0, 255)
+        img[:, :, 1] = np.clip(img[:, :, 1] + 40, 0, 255)
+        img[:, :, 2] = np.clip(img[:, :, 2] + 72, 0, 255)
         
         elapsed = time.time() - self.lobby_countdown_start
         countdown = max(0, 3 - int(elapsed))

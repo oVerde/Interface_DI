@@ -1,5 +1,25 @@
 import cv2
 import sys
+import os
+
+# Configurar para usar GPU se disponível
+os.environ['OPENCV_VIDEOIO_PRIORITY_MSMF'] = '0'  # Prioridade para DirectShow
+try:
+    # Tentar habilitar CUDA se disponível
+    if cv2.cuda.getCudaEnabledDeviceCount() > 0:
+        print(f"✓ GPU CUDA detectada: {cv2.cuda.getCudaEnabledDeviceCount()} dispositivo(s)")
+        os.environ['OPENCV_DNN_BACKEND'] = 'CUDA'
+        os.environ['OPENCV_DNN_TARGET'] = 'CUDA'
+except:
+    pass
+
+# Tentar usar DirectML (GPU AMD/Intel no Windows)
+try:
+    import mediapipe as mp
+    # MediaPipe vai usar GPU automaticamente se TensorFlow Lite GPU estiver disponível
+except:
+    pass
+
 from gesture_engine import GestureEngine
 from renderer import Renderer
 from game_logic import Map1Game, Map2Game, Map3Game
@@ -35,36 +55,80 @@ def _check_python_version():
         print(f"[Aviso] Python recomendado: 3.12.x. Está a usar {ver.major}.{ver.minor}.{ver.micro}.")
         print("         Siga o README para usar 'py -3.12' ou o setup.ps1.")
 
-def main():
-    _check_python_version()
-    cap = cv2.VideoCapture(0)
-    cap.set(3, 1280)
-    cap.set(4, 720)
+def _open_camera():
+    """Tenta abrir a câmera usando diferentes backends e índices"""
+    backends = [
+        (cv2.CAP_DSHOW, "DirectShow"),
+        (cv2.CAP_MSMF, "Media Foundation"),
+        (cv2.CAP_ANY, "Auto")
+    ]
+    camera_indices = [0, 1, 2]
+    
+    for idx in camera_indices:
+        for backend, backend_name in backends:
+            try:
+                print(f"Tentando câmera {idx} com {backend_name}...")
+                cap = cv2.VideoCapture(idx, backend)
+                if cap.isOpened():
+                    ret, frame = cap.read()
+                    if ret and frame is not None:
+                        print(f"✓ Câmera {idx} OK ({backend_name})")
+                        # Otimizações de performance
+                        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+                        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+                        cap.set(cv2.CAP_PROP_FPS, 30)
+                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                        return cap
+                    cap.release()
+            except:
+                continue
+    return None
 
+def main():
+    print("Iniciando programa...")
+    _check_python_version()
+    cap = _open_camera()
+    if cap is None:
+        print("ERRO: Nenhuma câmera encontrada!")
+        return
+    print("Carregando componentes...")
     bg_loader = BackgroundLoader((1280, 720))
     engine = GestureEngine()
     interface = InterfaceManager()
     renderer = Renderer()
     renderer.set_backgrounds(bg_loader, interface.maps)
     game = None
-    window_created = False
+    frame_count = 0
+    print("Componentes carregados!")
     
     cv2.namedWindow('Interactive Project Python', cv2.WINDOW_NORMAL)
     cv2.setWindowProperty('Interactive Project Python', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
 
     print("Sistema iniciado. Comandos: Braço direito (NEXT), Braço esquerdo (PREV), Ambos (SELECT)")
 
+    # Cache do background atual
+    current_bg = bg_loader.get_background(interface.current_index)
+    last_index = interface.current_index
+    
     while cap.isOpened():
-        if not cap.grab():
-            break
-        success, frame = cap.retrieve()
+        success, frame = cap.read()
         if not success:
             continue
 
         frame = cv2.flip(frame, 1)
-        results = engine.process_frame(frame)
-        event = engine.detect_gesture(results)
-        display_frame = bg_loader.get_background(interface.current_index)
+        
+        # Processar gestos apenas a cada 2 frames para performance
+        event = None
+        if frame_count % 2 == 0:
+            results = engine.process_frame(frame)
+            event = engine.detect_gesture(results)
+        frame_count += 1
+        
+        # Atualizar background apenas se mudou
+        if interface.current_index != last_index:
+            current_bg = bg_loader.get_background(interface.current_index)
+            last_index = interface.current_index
+        display_frame = current_bg
 
         prev_state = interface.state
         interface.update(event)
@@ -94,10 +158,8 @@ def main():
                                       mp_lobby_data=mp_data)
 
         cv2.imshow('Interactive Project Python', final_frame)
-        if not window_created:
-            window_created = True
 
-        key = cv2.waitKey(5) & 0xFF
+        key = cv2.waitKey(1) & 0xFF
         if key == 27:
             break
         elif key == 8:

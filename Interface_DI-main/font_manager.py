@@ -15,6 +15,7 @@ class FontManager:
     """Manages .ttf fonts for OpenCV rendering using PIL - OPTIMIZED"""
     
     _fonts_cache = {}
+    _pil_cache = {}  # Cache para imagens PIL
     _default_font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'Roboto-VariableFont_wdth,wght.ttf')
     
     @staticmethod
@@ -70,21 +71,50 @@ class FontManager:
                        max(0.5, font_size / 25), color, thickness)
             return img
         
-        # Convert BGR to RGB for PIL
-        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        pil_img = Image.fromarray(img_rgb)
-        draw = ImageDraw.Draw(pil_img)
+        # Criar imagem temporária apenas para o texto (mais eficiente)
+        bbox = font.getbbox(text)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        offset_x = -bbox[0]
+        offset_y = -bbox[1]
         
-        # Convert BGR to RGB for PIL
-        color_rgb = (color[2], color[1], color[0])
+        # Criar overlay com margem para não cortar
+        margin = 10
+        text_img = Image.new('RGBA', (text_width + margin * 2, text_height + margin * 2), (0, 0, 0, 0))
+        draw = ImageDraw.Draw(text_img)
+        color_rgb = (color[2], color[1], color[0], 255)
+        draw.text((offset_x + margin, offset_y + margin), text, font=font, fill=color_rgb)
         
-        draw.text(position, text, font=font, fill=color_rgb)
+        # Converter para numpy e BGR
+        text_arr = np.array(text_img)
+        text_bgr = cv2.cvtColor(text_arr, cv2.COLOR_RGBA2BGR)
+        alpha = text_arr[:, :, 3] / 255.0
         
-        # Convert back to BGR
-        img_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+        # Aplicar apenas na região do texto
+        x, y = position
+        x -= margin
+        y -= margin
+        img_h, img_w = img.shape[:2]
+        txt_h, txt_w = text_bgr.shape[:2]
         
-        # Copy back to original image
-        img[:] = img_bgr
+        # Calcular região válida
+        y_start = max(0, y)
+        x_start = max(0, x)
+        y_end = min(y + txt_h, img_h)
+        x_end = min(x + txt_w, img_w)
+        
+        txt_y_start = y_start - y
+        txt_x_start = x_start - x
+        txt_y_end = txt_y_start + (y_end - y_start)
+        txt_x_end = txt_x_start + (x_end - x_start)
+        
+        if y_end > y_start and x_end > x_start:
+            alpha_region = alpha[txt_y_start:txt_y_end, txt_x_start:txt_x_end]
+            for c in range(3):
+                img[y_start:y_end, x_start:x_end, c] = (
+                    alpha_region * text_bgr[txt_y_start:txt_y_end, txt_x_start:txt_x_end, c] +
+                    (1 - alpha_region) * img[y_start:y_end, x_start:x_end, c]
+                )
         return img
     
     @staticmethod

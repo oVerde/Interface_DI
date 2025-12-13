@@ -4,11 +4,24 @@ import time
 
 class GestureEngine:
     def __init__(self):
-        self.holistic = mp.solutions.holistic.Holistic(
-            min_detection_confidence=0.5,
-            min_tracking_confidence=0.5,
-            model_complexity=1
-        )
+        # Tentar usar GPU (funciona com CUDA/DirectML)
+        try:
+            self.holistic = mp.solutions.holistic.Holistic(
+                min_detection_confidence=0.6,
+                min_tracking_confidence=0.6,
+                model_complexity=0,  # Modelo mais leve e rápido
+                smooth_landmarks=True,
+                enable_segmentation=False,  # Desabilitar para performance
+                refine_face_landmarks=False  # Desabilitar para performance
+            )
+            print("✓ MediaPipe inicializado (GPU se disponível)")
+        except Exception as e:
+            print(f"Aviso: {e}")
+            self.holistic = mp.solutions.holistic.Holistic(
+                min_detection_confidence=0.6,
+                min_tracking_confidence=0.6,
+                model_complexity=0
+            )
         self.shoulder_threshold = 0.05
         self.last_trigger_time = 0
         self.cooldown_duration = 0.8

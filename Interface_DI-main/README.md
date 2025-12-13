@@ -3,43 +3,67 @@
 Este README explica exatamente o que é preciso para instalar, configurar e executar o ficheiro `main.py` deste projeto no Windows.
 
 ## Requisitos
-- Python 3.12.8 (recomendado 64-bit)
+- Python 3.12.x (recomendado 64-bit) - [Download aqui](https://www.python.org/downloads/)
 - Webcam integrada ou USB
 - Permissões para aceder à câmara no Windows
+- Windows 10/11
 
-## Dependências Python
-Instale os seguintes pacotes:
-- opencv-python
-- mediapipe
-- numpy
-- pillow
+## Instalação num computador novo
 
-Opcional (já incluído no projeto):
-- Fonte `fonts/Roboto-VariableFont_wdth,wght.ttf` para melhor renderização de texto. Caso não exista, o programa usa a fonte padrão do OpenCV.
+### 1. Instalar Python 3.12
+- Faça download do Python 3.12 em [python.org](https://www.python.org/downloads/)
+- Durante a instalação, **marque a opção "Add Python to PATH"**
+- Ou instale via Microsoft Store: `Python 3.12`
+
+### 2. Instalar dependências
+Abra PowerShell na pasta do projeto e execute:
+
+```powershell
+# Criar ambiente virtual
+python -m venv .venv
+
+# Ativar ambiente virtual
+.\.venv\Scripts\Activate.ps1
+
+# Se der erro de política de execução:
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+
+# Atualizar pip
+python -m pip install --upgrade pip
+
+# Instalar todas as dependências
+pip install -r requirements.txt
+```
+
+### 3. Executar o programa
+```powershell
+python main.py
+```
+
+## Dependências Python (instaladas automaticamente)
+O ficheiro `requirements.txt` inclui:
+- **opencv-python** - Processamento de imagem e vídeo
+- **mediapipe** - Reconhecimento de gestos corporais
+- **numpy** - Operações matemáticas
+- **Pillow** - Renderização de fontes TTF
+
+O MediaPipe instalará automaticamente as suas dependências (jax, matplotlib, protobuf, etc.)
 
 ## Estrutura esperada
 - `img/map1/background.png`
 - `img/map2/background.png`
 - `img/map3/background.png`
+- `fonts/Roboto-VariableFont_wdth,wght.ttf`
+
 Se estes ficheiros não existirem, serão mostrados placeholders.
 
-## Passo a passo (recomendado)
-1) Setup automático com Python 3.12
+## Passo a passo (Setup Automático)
 ```powershell
-.# cria venv com Python 3.12 (via py launcher)
- .\setup.ps1 -PySpec 3.12
- # ativar venv se necessário
- .\.venv\Scripts\Activate.ps1
- # executar
- python .\main.py
-```
+# Executa setup.ps1 para configurar tudo automaticamente
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\setup.ps1
 
-2) Alternativa manual (com Python 3.12 ativo)
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-py -3.12 -m pip install --upgrade pip
-pip install -r requirements.txt
+# Executar o programa
 python .\main.py
 ```
 

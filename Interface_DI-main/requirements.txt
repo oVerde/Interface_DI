@@ -1,4 +1,10 @@
-opencv-python==4.10.0.84
-mediapipe==0.10.9
-numpy>=1.24,<2.0
-Pillow>=10.0.0
+# Dependências principais
+opencv-python>=4.12.0.88
+mediapipe>=0.10.14
+numpy>=2.2.0
+Pillow>=12.0.0
+
+# Nota: mediapipe 0.10.9 não está disponível, use 0.10.14 ou superior
+# O mediapipe instalará automaticamente as dependências necessárias:
+# - absl-py, attrs, flatbuffers, jax, jaxlib, matplotlib
+# - protobuf, sounddevice, scipy, etc.
