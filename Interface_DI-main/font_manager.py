@@ -16,7 +16,7 @@ class FontManager:
     
     _fonts_cache = {}
     _pil_cache = {}  # Cache para imagens PIL
-    _default_font_path = os.path.join(os.path.dirname(__file__), 'fonts', 'Roboto-VariableFont_wdth,wght.ttf')
+    _default_font_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'fonts', 'Roboto-VariableFont_wdth,wght.ttf')
     
     @staticmethod
     def load_font(font_path=None, font_size=30):

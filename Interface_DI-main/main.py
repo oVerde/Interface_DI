@@ -24,7 +24,8 @@ from gesture_engine import GestureEngine
 from renderer import Renderer
 from game_logic import Map1Game, Map2Game, Map3Game
 from background_loader import BackgroundLoader
-from lobby import Lobby
+import subprocess
+import sys
 
 
 class InterfaceManager:
@@ -42,7 +43,23 @@ class InterfaceManager:
         elif event == 'PREV':
             self.current_index = (self.current_index - 1 + len(self.maps)) % len(self.maps)
         elif event == 'SELECT' and self.current_index not in self.locked_maps:
-            self.state = "MULTIPLAYER_LOBBY"
+            self.state = "LOBBY"
+    
+    def launch_lobby(self):
+        """Lança o lobby do Projeto-DI-main"""
+        lobby_path = os.path.join(os.path.dirname(__file__), 'Projeto-DI-main', 'poseCenario', 'lobby_test.py')
+        if os.path.exists(lobby_path):
+            try:
+                print("Lançando lobby...")
+                # Executar lobby e aguardar conclusão
+                result = subprocess.run([sys.executable, lobby_path], cwd=os.path.dirname(lobby_path))
+                return result.returncode == 0
+            except Exception as e:
+                print(f"Erro ao lançar lobby: {e}")
+                return False
+        else:
+            print("Lobby não encontrado!")
+            return False
     
     def get_state_data(self):
         return {'state': self.state, 'maps': self.maps, 'current_index': self.current_index,
@@ -133,29 +150,26 @@ def main():
         prev_state = interface.state
         interface.update(event)
         
-        if prev_state == "SELECTOR" and interface.state == "MULTIPLAYER_LOBBY":
-            renderer.init_multiplayer_lobby()
+        # Quando entra no LOBBY, fecha a janela atual e lança o lobby do Projeto
+        if prev_state == "SELECTOR" and interface.state == "LOBBY":
+            print("Entrando no lobby...")
+            cv2.destroyAllWindows()
+            cap.release()
+            
+            # Lançar lobby (que automaticamente lançará o cenário)
+            interface.launch_lobby()
+            
+            # Após lobby/cenário, programa encerra
+            print("Programa finalizado.")
+            return
         
-        if interface.state == "MULTIPLAYER_LOBBY":
-            renderer.update_multiplayer_lobby(event)
-            if renderer.multiplayer_lobby_finished():
-                game = [Map1Game(), Map2Game(), Map3Game()][interface.current_index]
-                interface.state = "LOBBY"
-                renderer.init_lobby(interface.current_index)
-        
-        if interface.state == "LOBBY":
-            renderer.update_lobby()
-            if renderer.lobby_finished():
-                interface.state = "VIEWER"
-        
+        # Atualizar jogo se estiver ativo
         if game and interface.state == "VIEWER":
             game.update(event, results)
 
         state_data = interface.get_state_data()
-        mp_data = {'confirmed_players': renderer.multiplayer_players_ready, 'total_players': 5}
         final_frame = renderer.render(display_frame, interface.state, state_data['maps'], 
-                                      state_data['current_index'], is_locked=state_data['is_locked'], 
-                                      mp_lobby_data=mp_data)
+                                      state_data['current_index'], is_locked=state_data['is_locked'])
 
         cv2.imshow('Interactive Project Python', final_frame)
 
@@ -166,12 +180,6 @@ def main():
             if interface.state == "VIEWER":
                 game = None
                 interface.state = "SELECTOR"
-            elif interface.state == "MULTIPLAYER_LOBBY":
-                interface.state = "SELECTOR"
-            elif interface.state == "LOBBY":
-                interface.state = "SELECTOR"
-        elif key == 13 and interface.state == "MULTIPLAYER_LOBBY":
-            renderer.set_player_ready()
 
     cap.release()
     cv2.destroyAllWindows()

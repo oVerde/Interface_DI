@@ -1,10 +1,21 @@
-# Dependências principais
-opencv-python>=4.12.0.88
-mediapipe>=0.10.14
-numpy>=2.2.0
-Pillow>=12.0.0
+# Dependências principais do projeto Interface DI
+# Instalação: pip install -r requirements.txt
 
-# Nota: mediapipe 0.10.9 não está disponível, use 0.10.14 ou superior
-# O mediapipe instalará automaticamente as dependências necessárias:
-# - absl-py, attrs, flatbuffers, jax, jaxlib, matplotlib
-# - protobuf, sounddevice, scipy, etc.
+# Processamento de vídeo e câmera
+opencv-python>=4.12.0.88
+
+# Detecção de pose e gestos
+mediapipe>=0.10.14
+
+# Operações matemáticas e arrays
+numpy>=2.2.0
+
+# Renderização de fontes TTF (IMPORTANTE: usar 11.x, não 12.x)
+# Pillow 12.0.0 tem incompatibilidade com Arcade
+Pillow>=11.3.0,<12.0.0
+
+# Engine de jogo para Lobby e Cenário (Arcade)
+arcade>=2.6.0
+
+# Nota: O MediaPipe instalará automaticamente suas dependências:
+# - absl-py, attrs, flatbuffers, matplotlib, protobuf, etc.
